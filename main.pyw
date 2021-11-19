@@ -4,6 +4,8 @@ import time
 # GLOBALS HERE
 (WIDTH, HEIGHT) = (800, 800)
 NUM_POINTS = 150        # how many points should exist on the curve.
+COLOR_SPEED = 0.25
+FADE_SPEED = 0.75
 
 def hsv_to_rgb(h, s, v):
     h %= 360
@@ -56,9 +58,9 @@ def draw_segments(pts, color=(100, 100, 255)):
     for i in range(1, len(pts)):
         pygame.draw.aaline(surf, color, pts[i - 1], pts[i], 2)
 
-def draw_pts(pts, width=7):
+def draw_pts(pts, width=3, color=(255,0,0)):
     for pt in pts:
-        pygame.draw.circle(surf, (255, 0, 0), pt, width)
+        pygame.draw.circle(surf, color, pt, width)
 
 pygame.init()
 surf = pygame.display.set_mode((WIDTH, HEIGHT))
@@ -77,8 +79,11 @@ while True:
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:
                     curve.append(event.pos)
-            elif event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN and curve:
-                polling = False
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RETURN and curve:
+                    polling = False
+                elif event.key == pygame.K_BACKSPACE:
+                    curve = []
 
         draw_segments(curve)
         draw_pts(curve)
@@ -88,7 +93,8 @@ while True:
 
     # Animate scene
     has_quit = False
-    points_on_curve = [(curve[0], hsv_to_rgb(0, 1, 1))]
+    points_on_curve = [curve[0]]
+    animation_start = time.time()
     for i in range(NUM_POINTS + 1):
         w = i / NUM_POINTS
         start = time.perf_counter()
@@ -108,38 +114,49 @@ while True:
 
         # We don't wanna crash, and create an immense amount of points, would we?
         surf.fill((0, 0, 0))
-        if i < NUM_POINTS:
-            nested_pts = bezier_curve(curve, w)
-            for pts in nested_pts:
-                draw_segments(pts)
-                draw_pts(pts, 3)
-            rgb_of_curve_segment = hsv_to_rgb(w * 360, 1, 1)
-            points_on_curve.append(
-                (nested_pts[-1][0], rgb_of_curve_segment)
-            )
-        
-            # Now, draw the actual curve.
-            for i in range(len(points_on_curve) - 1):
-                (pt1, color1) = points_on_curve[i]
-                (pt2, _) = points_on_curve[i + 1]
-                draw_segments([pt1, pt2], color1)
-        else:
-            # Copied code from above... too lazy to make a function
-            for i in range(len(points_on_curve) - 1):
-                pt1, color1 = points_on_curve[i]
-                pt2, _ = points_on_curve[i + 1]
-                draw_segments([pt1, pt2], color1)
+        nested_pts = bezier_curve(curve, w)
+        for pts in nested_pts:
+            draw_segments(pts)
+            draw_pts(pts, 3)
+        rgb_of_curve_segment = hsv_to_rgb(w * 360, 1, 1)
+        points_on_curve.append(nested_pts[-1][0])
+    
+        # Now, draw the actual curve.
+        for i in range(len(points_on_curve) - 1):
+            # To get the hue for this segment, h = 360 * (elapsed * rate + %complete)
+            h = 360 * (COLOR_SPEED * (time.time() - animation_start) + i / len(points_on_curve))
+            draw_segments(points_on_curve[i:i + 2], hsv_to_rgb(h, 1, 1))
         pygame.display.flip()
-        
         elapsed = time.perf_counter() - start
         time.sleep(max(1 / 60 - elapsed, 0))
     
-    # Wait and do nothing
+    # Continue animating rainbow curve, and fade the segments to black
     waiting = not has_quit
+    fade_start = time.time()
     while waiting:
+        start = time.perf_counter()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 quit()
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_BACKSPACE:
                 waiting = False
+
+        surf.fill((0, 0, 0))
+        darkness = FADE_SPEED * (time.time() - fade_start) * 255
+        base_color = (100, 100, 255)
+        new_color = [max(0, c - darkness) for c in base_color]
+        draw_segments(curve, new_color)
+        base_color = (255, 0, 0)
+        new_color = [max(0, c - darkness) for c in base_color]
+        draw_pts(curve, 3, new_color)
+
+        # Copied from above
+        for i in range(len(points_on_curve) - 1):
+            # To get the hue for this segment, h = 360 * (elapsed * rate + %complete)
+            h = 360 * (COLOR_SPEED * (time.time() - animation_start) + i / len(points_on_curve))
+            draw_segments(points_on_curve[i:i + 2], hsv_to_rgb(h, 1, 1))
+
+        pygame.display.flip()
+        elapsed = time.perf_counter() - start
+        time.sleep(max(1 / 60 - elapsed, 0))
