@@ -2,8 +2,8 @@ import pygame
 import time
 
 # GLOBALS HERE
-(WIDTH, HEIGHT) = (500, 500)
-NUM_POINTS = 100        # how many points should exist on the curve.
+(WIDTH, HEIGHT) = (800, 800)
+NUM_POINTS = 150        # how many points should exist on the curve.
 
 def hsv_to_rgb(h, s, v):
     h %= 360
@@ -135,7 +135,7 @@ while True:
         time.sleep(max(1 / 60 - elapsed, 0))
     
     # Wait and do nothing
-    waiting = True
+    waiting = not has_quit
     while waiting:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
