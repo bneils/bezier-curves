@@ -1,7 +1,9 @@
 import pygame
 import time
 
-from pygame import draw
+# GLOBALS HERE
+(WIDTH, HEIGHT) = (500, 500)
+NUM_POINTS = 100        # how many points should exist on the curve.
 
 def hsv_to_rgb(h, s, v):
     h %= 360
@@ -59,11 +61,9 @@ def draw_pts(pts, width=7):
         pygame.draw.circle(surf, (255, 0, 0), pt, width)
 
 pygame.init()
-surf = pygame.display.set_mode((500, 500))
+surf = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Lclick to place points | Enter to render | Backspace to reset")
 
-# How many points are made a second.
-courseness = 100
 while True:
     curve = []
     polling = True
@@ -89,8 +89,8 @@ while True:
     # Animate scene
     has_quit = False
     points_on_curve = [(curve[0], hsv_to_rgb(0, 1, 1))]
-    for i in range(courseness + 1):
-        w = i / courseness
+    for i in range(NUM_POINTS + 1):
+        w = i / NUM_POINTS
         start = time.perf_counter()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -108,7 +108,7 @@ while True:
 
         # We don't wanna crash, and create an immense amount of points, would we?
         surf.fill((0, 0, 0))
-        if i < courseness:
+        if i < NUM_POINTS:
             nested_pts = bezier_curve(curve, w)
             for pts in nested_pts:
                 draw_segments(pts)
