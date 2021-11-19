@@ -3,6 +3,24 @@ import time
 
 from pygame import draw
 
+def hsv_to_rgb(h, s, v):
+    # 0 <= h <= 360 "hue"
+    # 0 <= s <= 1   "saturation"
+    # 0 <= v <= 1   "value/brightness"
+    # https://www.rapidtables.com/convert/color/hsv-to-rgb.html
+    c = v * s
+    x = c * (1 - abs((h / 60) % 2 - 1))
+    m = v - c
+    r, g, b = [
+        (c, x, 0),
+        (x, c, 0),
+        (0, c, x),
+        (0, x, c),
+        (x, 0, c),
+        (c, 0, x), # heh.
+    ][int(h // 60)]
+    return ((r + m) * 255, (g + m) * 255, (b + m) * 255)
+
 def lerp(a, b, w):
     return a + (b - a) * w
 
@@ -40,8 +58,10 @@ surf = pygame.display.set_mode((500, 500))
 pygame.display.set_caption("Lclick to place points | Enter to render | Backspace to reset")
 clock = pygame.time.Clock()
 
-# Adjust this to increase the animation duration
+# The animation duration, in seconds.
 duration = 5
+# How many points are made a second.
+courseness = 100 
 
 while True:
     curve = []
@@ -56,13 +76,8 @@ while True:
             elif event.type == pygame.MOUSEBUTTONDOWN:
                 if event.button == 1:
                     curve.append(event.pos)
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_RETURN:
-                    if not curve:
-                        pygame.quit()
-                        quit()
-                    else:
-                        polling = False
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN and curve:
+                polling = False
 
         draw_segments(curve)
         draw_pts(curve)
@@ -73,9 +88,12 @@ while True:
     # Animate scene
     start = time.time()
     animating = True
-    points_on_curve = [curve[0]]
+    # not my proudest "optimization"...
+    has_drawn_final_frame = False
+    points_on_curve = [(curve[0], hsv_to_rgb(0, 1, 1))]
+    
     while animating:
-        clock.tick(120)
+        clock.tick(courseness)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -90,15 +108,33 @@ while True:
         w = (time.time() - start) / duration
 
         # We don't wanna crash, and create an immense amount of points, would we?
-        surf.fill((0, 0, 0))
-        if w <= 1:
-            nested_pts = bezier_curve(curve, w)
-            for pts in nested_pts[:-1]:
-                draw_segments(pts)
-                draw_pts(pts, 3)
-            points_on_curve.append(nested_pts[-1][0])
-
-        # Now, draw the actual curve.
-        draw_segments(points_on_curve, (255, 255, 255))
-
-        pygame.display.flip()
+        if w <= 1 or not has_drawn_final_frame:
+            surf.fill((0, 0, 0))
+            if w <= 1:
+                nested_pts = bezier_curve(curve, w)
+                for pts in nested_pts:
+                    draw_segments(pts)
+                    draw_pts(pts, 3)
+                
+                percent_done = (len(points_on_curve) + 1) / (duration * courseness)
+                rgb_of_curve_segment = hsv_to_rgb(percent_done * 360, 1, 1)
+                points_on_curve.append(
+                    (nested_pts[-1][0], rgb_of_curve_segment)
+                )
+            
+                # Now, draw the actual curve.
+                for i in range(len(points_on_curve) - 1):
+                    (pt1, color1) = points_on_curve[i]
+                    (pt2, _) = points_on_curve[i + 1]
+                    draw_segments([pt1, pt2], color1)
+            elif not has_drawn_final_frame:
+                has_drawn_final_frame = True
+                # Copied code from above... to lazy to make a function
+                for i in range(len(points_on_curve) - 1):
+                    (pt1, color1) = points_on_curve[i]
+                    (pt2, _) = points_on_curve[i + 1]
+                    draw_segments([pt1, pt2], color1)
+                # Yes, eww..
+                del points_on_curve
+            pygame.display.flip()
+            
