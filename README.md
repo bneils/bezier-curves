@@ -1,5 +1,5 @@
 # bezier-curves
-An interactive (and human-friendly) scene animator of Bezier curves in Pygame.
+An interactive (and human-friendly) Bezier curve animator in Pygame.
 
 Left click registers points.
 
